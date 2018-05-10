@@ -287,9 +287,9 @@ bool UCTSearch::should_resign(passflag_t passflag, float bestscore) {
         return false;
     }
 
-    const size_t board_squares = m_rootstate.board.get_boardsize()
-                               * m_rootstate.board.get_boardsize();
-    const auto move_threshold = board_squares / 4;
+    /*const size_t board_squares = m_rootstate.board.get_boardsize()
+                               * m_rootstate.board.get_boardsize();*/
+    const auto move_threshold = BOARD_SQUARES / 4;
     const auto movenum = m_rootstate.get_movenum();
     if (movenum <= move_threshold) {
         // too early in game to resign
@@ -313,7 +313,7 @@ bool UCTSearch::should_resign(passflag_t passflag, float bestscore) {
             resign_threshold / (1 + m_rootstate.get_handicap());
 
         // Blend the thresholds for the first ~215 moves.
-        auto blend_ratio = std::min(1.0f, movenum / (0.6f * board_squares));
+        auto blend_ratio = std::min(1.0f, movenum / (0.6f * BOARD_SQUARES));
         auto blended_resign_threshold = blend_ratio * resign_threshold
             + (1 - blend_ratio) * handicap_resign_threshold;
         if (bestscore > blended_resign_threshold) {
@@ -568,7 +568,7 @@ void UCTWorker::operator()() {
     } while (m_search->is_running());
 }
 
-void UCTSearch::increment_playouts() {
+inline void UCTSearch::increment_playouts() {
     m_playouts++;
 }
 
