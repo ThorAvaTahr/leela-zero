@@ -145,7 +145,7 @@ void UCTNode::link_nodelist(std::atomic<int>& nodecount,
             )
         );
     } else {
-        m_children.reserve(nodelist.size());
+        m_children.reserve(std::min(static_cast<int>(BOARD_SQUARES / 4), static_cast<int>(nodelist.size())));
     }
     auto iter = 0;
     auto skipped_children = false;
@@ -253,7 +253,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         }
     }
 
-    auto numerator = std::sqrt(double(parentvisits));
+    auto numerator = std::sqrt(std::log(static_cast<double>(parentvisits+1)));
     auto fpu_reduction = 0.0f;
     // Lower the expected eval for moves that are likely not the best.
     // Do not do this if we have introduced noise at this node exactly
@@ -278,7 +278,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         }
         auto psa = child.get_score();
         auto denom = 1.0 + child.get_visits();
-        auto puct = cfg_puct * psa * (numerator / denom);
+        auto puct = cfg_puct * psa * (numerator / std::sqrt(denom));
         auto value = winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
 
