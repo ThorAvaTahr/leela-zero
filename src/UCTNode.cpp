@@ -40,7 +40,7 @@
 
 using namespace Utils;
 
-UCTNode::UCTNode(int vertex, float score) : m_move(vertex), m_score(score) {
+UCTNode::UCTNode(int vertex, float score) : m_move(vertex), m_policy(score) {
 }
 
 bool UCTNode::first_visit() const {
@@ -192,12 +192,12 @@ bool UCTNode::expandable(const float min_psa_ratio) const {
     return min_psa_ratio < m_min_psa_ratio_children;
 }
 
-float UCTNode::get_score() const {
-    return m_score;
+float UCTNode::get_policy() const {
+    return m_policy;
 }
 
-void UCTNode::set_score(float score) {
-    m_score = score;
+void UCTNode::set_policy(float policy) {
+    m_policy = policy;
 }
 
 int UCTNode::get_visits() const {
