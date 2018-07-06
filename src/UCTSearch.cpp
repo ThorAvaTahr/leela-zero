@@ -229,7 +229,7 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
             move.c_str(),
             node->get_visits(),
             node->get_visits() ? node->get_eval(color)*100.0f : 0.0f,
-            node->get_score() * 100.0f,
+            node->get_policy() * 100.0f,
             pv.c_str());
     }
     tree_stats(parent);
