@@ -247,7 +247,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (child.valid()) {
             parentvisits += child.get_visits();
             if (child.get_visits() > 0) {
-                total_visited_policy += child.get_score();
+                total_visited_policy += child.get_policy();
             }
         }
     }
@@ -275,7 +275,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         if (child.get_visits() > 0) {
             winrate = child.get_eval(color);
         }
-        auto psa = child.get_score();
+        auto psa = child.get_policy();
         auto denom = 1.0 + child.get_visits();
         auto puct = cfg_puct * psa * (numerator / denom);
         auto value = winrate + puct;
@@ -305,7 +305,7 @@ public:
 
         // neither has visits, sort on prior score
         if (a.get_visits() == 0) {
-            return a.get_score() < b.get_score();
+            return a.get_policy() < b.get_policy();
         }
 
         // both have same non-zero number of visits

@@ -105,7 +105,7 @@ public:
     // constructing UCTNode
     bool valid() const;
     int get_visits() const;
-    float get_score() const;
+    float get_policy() const;
     bool active() const;
     int get_move() const;
     // this can only be called if it is an inflated pointer
