@@ -58,10 +58,10 @@ UCTNodePointer& UCTNodePointer::operator=(UCTNodePointer&& n) {
     return *this;
 }
 
-void UCTNodePointer::inflate() const {
+void UCTNodePointer::inflate(float parent_value, int parent_visits) const {
     if (is_inflated()) return;
     m_data = reinterpret_cast<std::uint64_t>(
-        new UCTNode(read_vertex(), read_score()));
+        new UCTNode(read_vertex(), read_score(), parent_value, parent_visits));
 }
 
 bool UCTNodePointer::valid() const {

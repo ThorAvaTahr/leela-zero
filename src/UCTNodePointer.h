@@ -99,7 +99,7 @@ public:
     }
 
     // construct UCTNode instance from the vertex/score pair
-    void inflate() const;
+    void inflate(float parent_value, int parent_visits) const;
 
     // proxy of UCTNode methods which can be called without
     // constructing UCTNode

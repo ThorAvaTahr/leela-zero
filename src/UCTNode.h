@@ -39,7 +39,7 @@ public:
     // search tree.
     static constexpr auto VIRTUAL_LOSS_COUNT = 3;
     // Defined in UCTNode.cpp
-    explicit UCTNode(int vertex, float score);
+    explicit UCTNode(int vertex, float policy, float parent_value, int parent_visits);
     UCTNode() = delete;
     ~UCTNode() = default;
 
@@ -118,6 +118,18 @@ private:
     // Tree data
     std::atomic<float> m_min_psa_ratio_children{2.0f};
     std::vector<UCTNodePointer> m_children;
+protected:
+    // mean and variance using welfords' algorithm (for stability)
+    float m_eval_mean;
+    // second order central moment of the evaluation (i.e. aggregate of squared distance from mean)
+    float m_eval_moment2;
+public:
+
+    // returns the variance of the evaluation
+    inline float get_eval_variance() { return m_eval_moment2 / m_visits; }
+    inline float get_eval_mean() { return m_eval_mean; }
+
+    
 };
 
 #endif

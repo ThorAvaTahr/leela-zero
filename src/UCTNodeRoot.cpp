@@ -162,7 +162,7 @@ std::unique_ptr<UCTNode> UCTNode::find_child(const int move) {
     for (auto& child : m_children) {
         if (child.get_move() == move) {
              // no guarantee that this is a non-inflated node
-            child.inflate();
+            child.inflate(get_eval_mean(), get_visits());
             return std::unique_ptr<UCTNode>(child.release());
         }
     }
@@ -173,7 +173,7 @@ std::unique_ptr<UCTNode> UCTNode::find_child(const int move) {
 
 void UCTNode::inflate_all_children() {
     for (const auto& node : get_children()) {
-        node.inflate();
+        node.inflate(get_eval_mean(), get_visits());
     }
 }
 

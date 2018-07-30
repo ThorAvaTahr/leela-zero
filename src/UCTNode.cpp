@@ -37,10 +37,15 @@
 #include "GameState.h"
 #include "Network.h"
 #include "Utils.h"
+#include "gaussian_utils.h"
 
 using namespace Utils;
 
-UCTNode::UCTNode(int vertex, float score) : m_move(vertex), m_policy(score) {
+UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits) : m_move(vertex)
+, m_policy(policy)
+{
+    m_visits = std::min(100, parent_visits);
+    m_eval_mean = erfinv(3.0f);
 }
 
 bool UCTNode::first_visit() const {
@@ -180,8 +185,16 @@ void UCTNode::virtual_loss_undo() {
 }
 
 void UCTNode::update(float eval) {
+    float f_delta1, f_delta2;
+    LOCK(get_mutex(), lock);
     m_visits++;
-    accumulate_eval(eval);
+    m_blackevals = m_blackevals + eval;
+    f_delta1 = eval - m_eval_mean;
+    m_eval_mean += f_delta1 / m_visits;
+    f_delta2 = eval - m_eval_mean; // this is different from f_delta1 as m_eval_mean is just updated
+    m_eval_moment2 += f_delta1*f_delta2;
+    // accumulate_eval(eval); // removed this line, as I needed a lock for the entire update function
+
 }
 
 bool UCTNode::has_children() const {
@@ -252,16 +265,16 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         }
     }
 
-    auto numerator = std::sqrt(double(parentvisits));
+    auto numerator = std::log(double(parentvisits)+1.0f);
     auto fpu_reduction = 0.0f;
     // Lower the expected eval for moves that are likely not the best.
     // Do not do this if we have introduced noise at this node exactly
     // to explore more.
-    if (!is_root || !cfg_noise) {
-        fpu_reduction = cfg_fpu_reduction * std::sqrt(total_visited_policy);
-    }
+    //if (!is_root || !cfg_noise) {
+    //    fpu_reduction = cfg_fpu_reduction * std::sqrt(total_visited_policy);
+    //}
     // Estimated eval for unknown nodes = original parent NN eval - reduction
-    auto fpu_eval = get_net_eval(color) - fpu_reduction;
+    auto fpu_eval = get_net_eval(color);// -fpu_reduction;
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
@@ -276,8 +289,8 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             winrate = child.get_eval(color);
         }
         auto psa = child.get_policy();
-        auto denom = 1.0 + child.get_visits();
-        auto puct = cfg_puct * psa * (numerator / denom);
+        auto denom = std::sqrt(1.0 + child.get_visits());
+        auto puct = cfg_puct*(std::sqrt(numerator)/denom + std::log(psa + 0.001f)*0.8/denom) ;
         auto value = winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
 
@@ -288,7 +301,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     }
 
     assert(best != nullptr);
-    best->inflate();
+    best->inflate(fpu_eval, (int)parentvisits);
     return best->get();
 }
 
@@ -326,7 +339,7 @@ UCTNode& UCTNode::get_best_root_child(int color) {
 
     auto ret = std::max_element(begin(m_children), end(m_children),
                                 NodeComp(color));
-    ret->inflate();
+    ret->inflate(get_eval_mean(), get_visits());
     return *(ret->get());
 }
 

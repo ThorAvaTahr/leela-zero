@@ -44,7 +44,7 @@ UCTSearch::UCTSearch(GameState& g)
     : m_rootstate(g) {
     set_playout_limit(cfg_max_playouts);
     set_visit_limit(cfg_max_visits);
-    m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
+    m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f, 0.5f, 0);
 }
 
 bool UCTSearch::advance_to_new_rootstate() {
@@ -127,13 +127,13 @@ void UCTSearch::update_root() {
 #endif
 
     if (!advance_to_new_rootstate() || !m_root) {
-        m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f);
+        m_root = std::make_unique<UCTNode>(FastBoard::PASS, 0.0f, 0.5f, 0);
     }
     // Clear last_rootstate to prevent accidental use.
     m_last_rootstate.reset(nullptr);
 
     // Check how big our search tree (reused or new) is.
-    m_nodes = m_root->count_nodes();
+    m_nodes = (int) m_root->count_nodes();
 
 #ifndef NDEBUG
     if (m_nodes > 0) {
@@ -585,7 +585,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     m_rootstate.get_timecontrol().set_boardsize(
         m_rootstate.board.get_boardsize());
-    auto time_for_move = m_rootstate.get_timecontrol().max_time_for_move(color, m_rootstate.get_movenum());
+    auto time_for_move = m_rootstate.get_timecontrol().max_time_for_move(color, (int) m_rootstate.get_movenum());
 
     myprintf("Thinking at most %.1f seconds...\n", time_for_move/100.0f);
 
