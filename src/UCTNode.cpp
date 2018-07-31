@@ -38,6 +38,7 @@
 #include "Network.h"
 #include "Utils.h"
 #include "gaussian_utils.h"
+#include "Random.h"
 
 using namespace Utils;
 
@@ -45,7 +46,7 @@ UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits
 , m_policy(policy)
 {
     m_visits = std::min(100, parent_visits);
-    m_eval_mean = erfinv(3.0f);
+    m_eval_mean = parent_value + std::sqrtf(2*cfg_prior_var)*erfinv(parent_value);
 }
 
 bool UCTNode::first_visit() const {
@@ -252,7 +253,7 @@ void UCTNode::accumulate_eval(float eval) {
 
 UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     LOCK(get_mutex(), lock);
-
+    
     // Count parentvisits manually to avoid issues with transpositions.
     auto total_visited_policy = 0.0f;
     auto parentvisits = size_t{0};
@@ -264,9 +265,9 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             }
         }
     }
-
-    auto numerator = std::log(double(parentvisits)+1.0f);
-    auto fpu_reduction = 0.0f;
+    
+    //auto numerator = std::logf(float(parentvisits)+1.0f);
+    //auto fpu_reduction = 0.0f;
     // Lower the expected eval for moves that are likely not the best.
     // Do not do this if we have introduced noise at this node exactly
     // to explore more.
@@ -274,34 +275,50 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     //    fpu_reduction = cfg_fpu_reduction * std::sqrt(total_visited_policy);
     //}
     // Estimated eval for unknown nodes = original parent NN eval - reduction
-    auto fpu_eval = get_net_eval(color);// -fpu_reduction;
+   // auto fpu_eval = get_net_eval(color);// -fpu_reduction;
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
-    auto best_value = std::numeric_limits<double>::lowest();
-
+    auto best_value = std::numeric_limits<float>::lowest();
+    std::vector<double> winrates;
+    winrates.reserve(362);
+    float winrate_sum = 0;
     for (auto& child : m_children) {
         if (!child.active()) {
             continue;
         }
 
-        auto winrate = fpu_eval;
+        
+        auto winrate = child.get_policy();
         if (child.get_visits() > 0) {
-            winrate = child.get_eval(color);
+            winrate = N_to_p(0.0f, get_eval_mean()-child.get_eval_mean() * (color ? 1.0f : -1.0f), child.get_eval_variance()+get_eval_variance());
         }
-        auto psa = child.get_policy();
-        auto denom = std::sqrt(1.0 + child.get_visits());
-        auto puct = cfg_puct*(std::sqrt(numerator)/denom + std::log(psa + 0.001f)*0.8/denom) ;
-        auto value = winrate + puct;
-        assert(value > std::numeric_limits<double>::lowest());
+        winrates.push_back(winrate);
+        winrate_sum += winrate;
+        //auto psa = child.get_policy();
+        //auto denom = std::sqrt(1.0 + child.get_visits());
+        //auto puct = cfg_puct*(std::sqrt(numerator)/denom + std::log(psa + 0.001f)*0.8/denom) ;
+        //auto value = winrate + puct;
+        //assert(value > std::numeric_limits<double>::lowest());
 
-        if (value > best_value) {
-            best_value = value;
+        if (winrate > best_value) {
+            best_value = winrate;
             best = &child;
         }
     }
+    float lottery = float(Random::get_Rng()()) / (float(Random::max()));
+    int i = 0;
+  
+    for (auto it = winrates.begin(); it !=winrates.end(); it++, i++) {
+        if ((lottery -= *it) < 0)
+        {
+            m_children[i].inflate(get_eval_mean(), (int)parentvisits);
+            return m_children[i].get();
+        }
+    }
+
 
     assert(best != nullptr);
-    best->inflate(fpu_eval, (int)parentvisits);
+    best->inflate(get_eval_mean(), (int)parentvisits);
     return best->get();
 }
 

@@ -126,8 +126,8 @@ protected:
 public:
 
     // returns the variance of the evaluation
-    inline float get_eval_variance() { return m_eval_moment2 / m_visits; }
-    inline float get_eval_mean() { return m_eval_mean; }
+    float get_eval_variance() const { return m_eval_moment2 / m_visits; }
+    float get_eval_mean() const { return m_eval_mean; }
 
     
 };

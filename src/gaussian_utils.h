@@ -21,6 +21,6 @@ float erfinv(float x) {
 // calculate value of p given a normal distribution with parameters mean and variance (= square of std-dev)
 float N_to_p(float value, float mean, float var)
 {
-    return 0.5f + std::erff((value - mean) / (std::sqrtf(var)*SQRT2)) / 2;
+    return 0.5f + std::erff((value - mean) / std::sqrtf(var*2.0f)) / 2;
 }
 

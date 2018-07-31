@@ -90,6 +90,17 @@ float UCTNodePointer::get_eval(int tomove) const {
     return read_ptr()->get_eval(tomove);
 }
 
+// returns the variance of the evaluation
+float UCTNodePointer::get_eval_variance() const { 
+    assert(is_inflated());  
+    return read_ptr()->get_eval_variance(); 
+}
+float UCTNodePointer::get_eval_mean() const { 
+    assert(is_inflated());  
+    return read_ptr()->get_eval_mean(); 
+}
+
+
 int UCTNodePointer::get_move() const {
     if (is_inflated()) return read_ptr()->get_move();
     return read_vertex();
