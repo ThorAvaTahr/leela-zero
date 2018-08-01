@@ -46,7 +46,7 @@ UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits
 , m_policy(policy)
 {
     m_visits = std::min(100, parent_visits);
-    m_eval_mean = parent_value + std::sqrtf(2*cfg_prior_var)*erfinv(parent_value);
+    m_eval_mean = parent_value + std::sqrtf(2*cfg_prior_var)*erfinv(parent_value)* FastBoard::get_tomove(vertex) ? 1 : -1;
 }
 
 bool UCTNode::first_visit() const {

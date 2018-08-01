@@ -63,6 +63,9 @@ public:
         BLACK = 0, WHITE = 1, EMPTY = 2, INVAL = 3
     };
 
+    static constexpr int VERTEXMASK = 0xFF7F;
+    static constexpr int VERTEXFLAGTOMOVE = 0x0080;
+
     /*
         move generation types
     */
@@ -76,6 +79,7 @@ public:
     void set_square(int x, int y, square_t content);
     void set_square(int vertex, square_t content);
     std::pair<int, int> get_xy(int vertex) const;
+    static int get_tomove(int vertex) { return VERTEXFLAGTOMOVE & vertex ? WHITE : BLACK; }
 
     bool is_suicide(int i, int color) const;
     int count_pliberties(const int i) const;
