@@ -43,6 +43,8 @@ class UCTNode;
 // by an external lock.
 
 class UCTNodePointer {
+    static constexpr int COLORFLAG = 0x00000008;
+
 private:
     // the raw storage used here.
     // if bit 0 is 0, m_data is the actual pointer.
@@ -54,6 +56,8 @@ private:
         assert(is_inflated());
         return reinterpret_cast<UCTNode*>(m_data);
     }
+    
+    int read_tomove() const { return (m_data & COLORFLAG) ? FastBoard::WHITE : FastBoard::BLACK; }
 
     std::int16_t read_vertex() const {
         assert(!is_inflated());
@@ -74,7 +78,7 @@ private:
 public:
     ~UCTNodePointer();
     UCTNodePointer(UCTNodePointer&& n);
-    UCTNodePointer(std::int16_t vertex, float score);
+    UCTNodePointer(std::int16_t vertex, float score, int color);
     UCTNodePointer(const UCTNodePointer&) = delete;
 
     bool is_inflated() const {

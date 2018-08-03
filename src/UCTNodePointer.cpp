@@ -39,13 +39,14 @@ UCTNodePointer::UCTNodePointer(UCTNodePointer&& n) {
     n.m_data = 1; // non-inflated garbage
 }
 
-UCTNodePointer::UCTNodePointer(std::int16_t vertex, float score) {
+UCTNodePointer::UCTNodePointer(std::int16_t vertex, float score, int color) {
     std::uint32_t i_score;
     auto i_vertex = static_cast<std::uint16_t>(vertex);
     std::memcpy(&i_score, &score, sizeof(i_score));
 
-    m_data =  (static_cast<std::uint64_t>(i_score)  << 32)
-            | (static_cast<std::uint64_t>(i_vertex) << 16) | 1ULL;
+    m_data = (static_cast<std::uint64_t>(i_score) << 32)
+        | (static_cast<std::uint64_t>(i_vertex) << 16) | 1ULL 
+        | ( color ?  COLORFLAG : 0 ) ; //black = 0 -> 0 white != 0 -> COLORFLAG
 }
 
 UCTNodePointer& UCTNodePointer::operator=(UCTNodePointer&& n) {
@@ -61,7 +62,7 @@ UCTNodePointer& UCTNodePointer::operator=(UCTNodePointer&& n) {
 void UCTNodePointer::inflate(float parent_value, int parent_visits) const {
     if (is_inflated()) return;
     m_data = reinterpret_cast<std::uint64_t>(
-        new UCTNode(read_vertex(), read_score(), parent_value, parent_visits));
+        new UCTNode(read_vertex(), read_score(), parent_value, parent_visits, read_tomove()));
 }
 
 bool UCTNodePointer::valid() const {
@@ -95,6 +96,7 @@ float UCTNodePointer::get_eval_variance() const {
     assert(is_inflated());  
     return read_ptr()->get_eval_variance(); 
 }
+
 float UCTNodePointer::get_eval_mean() const { 
     assert(is_inflated());  
     return read_ptr()->get_eval_mean(); 

@@ -42,11 +42,13 @@
 
 using namespace Utils;
 
-UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits) : m_move(vertex)
+UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits, int tomove) : m_move(vertex)
 , m_policy(policy)
 {
-    m_visits = std::min(100, parent_visits);
-    m_eval_mean = parent_value + std::sqrtf(2*cfg_prior_var)*erfinv(parent_value)* FastBoard::get_tomove(vertex) ? 1 : -1;
+    m_visits = 2;// std::min(100, parent_visits);
+    m_eval_mean = parent_value + cfg_prior_var*erfinv(parent_value) * (tomove ? -1 : 1); 
+    m_eval_mean = tomove ? std::max(std::numeric_limits<float>::min(), m_eval_mean) : std::min(1.0f, m_eval_mean);
+    m_color = tomove ? FastBoard::WHITE : FastBoard::BLACK;
 }
 
 bool UCTNode::first_visit() const {
@@ -159,7 +161,7 @@ void UCTNode::link_nodelist(std::atomic<int>& nodecount,
         if (node.first < new_min_psa) {
             skipped_children = true;
         } else if (node.first < old_min_psa) {
-            m_children.emplace_back(node.second, node.first);
+            m_children.emplace_back(node.second, node.first, get_color() ? FastBoard::BLACK : FastBoard::WHITE ); // invert color for next move with current color
             ++nodecount;
         }
     }
@@ -290,7 +292,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         
         auto winrate = child.get_policy();
         if (child.get_visits() > 0) {
-            winrate = N_to_p(0.0f, get_eval_mean()-child.get_eval_mean() * (color ? 1.0f : -1.0f), child.get_eval_variance()+get_eval_variance());
+            winrate = N_to_p(0.0f, (get_eval_mean()-child.get_eval_mean()) * (color ? 1.0f : -1.0f), child.get_eval_variance()+get_eval_variance());
         }
         winrates.push_back(winrate);
         winrate_sum += winrate;

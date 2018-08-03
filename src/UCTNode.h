@@ -39,7 +39,7 @@ public:
     // search tree.
     static constexpr auto VIRTUAL_LOSS_COUNT = 3;
     // Defined in UCTNode.cpp
-    explicit UCTNode(int vertex, float policy, float parent_value, int parent_visits);
+    explicit UCTNode(int vertex, float policy, float parent_value, int parent_visits, int tomove);
     UCTNode() = delete;
     ~UCTNode() = default;
 
@@ -62,6 +62,7 @@ public:
     bool valid() const;
     bool active() const;
     int get_move() const;
+    int get_color() const { return m_color; }
     int get_visits() const;
     float get_policy() const;
     void set_policy(float score);
@@ -102,6 +103,9 @@ private:
 
     // Move
     std::int16_t m_move;
+    // color
+    int m_color;
+
     // UCT
     std::atomic<std::int16_t> m_virtual_loss{0};
     std::atomic<int> m_visits{0};
