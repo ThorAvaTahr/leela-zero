@@ -45,10 +45,11 @@ using namespace Utils;
 UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits, int tomove) : m_move(vertex)
 , m_policy(policy)
 {
-    m_visits = 2;// std::min(100, parent_visits);
+    m_visits = 0;// std::min(100, parent_visits);
     m_eval_mean = parent_value + cfg_prior_var*erfinv(parent_value) * (tomove ? -1 : 1); 
     m_eval_mean = tomove ? std::max(std::numeric_limits<float>::min(), m_eval_mean) : std::min(1.0f, m_eval_mean);
     m_color = tomove ? FastBoard::WHITE : FastBoard::BLACK;
+    m_eval_moment2 = 0;
 }
 
 bool UCTNode::first_visit() const {
@@ -269,17 +270,17 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     LOCK(get_mutex(), lock);
     
     // Count parentvisits manually to avoid issues with transpositions.
-    auto total_visited_policy = 0.0f;
-    auto parentvisits = size_t{0};
-    for (const auto& child : m_children) {
-        if (child.valid()) {
-            parentvisits += child.get_visits();
-            if (child.get_visits() > 0) {
-                total_visited_policy += child.get_policy();
-            }
-        }
-    }
-    
+    //auto total_visited_policy = 0.0f;
+    //auto parentvisits = size_t{0};
+    //for (const auto& child : m_children) {
+    //    if (child.valid()) {
+    //        parentvisits += child.get_visits();
+    //        if (child.get_visits() > 0) {
+    //            total_visited_policy += child.get_policy();
+    //        }
+    //    }
+    //}
+    //
     //auto numerator = std::logf(float(parentvisits)+1.0f);
     //auto fpu_reduction = 0.0f;
     // Lower the expected eval for moves that are likely not the best.
@@ -297,14 +298,14 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     winrates.reserve(362);
     float winrate_sum = 0;
     for (auto& child : m_children) {
-        if (!child.active()) {
-            continue;
-        }
+//      if (!child.active()) {
+//          continue;
+//      }
 
         
         auto winrate = child.get_policy();
         if (child.get_visits() > 0) {
-            winrate = N_to_p(0.0f, (get_eval_mean()-child.get_eval_mean()) * (color ? 1.0f : -1.0f), child.get_eval_variance()+get_eval_variance());
+            winrate = N_to_p(0.0f, (get_eval_mean()-child.get_eval_mean()) * (color ? -1.0f : 1.0f), child.get_eval_variance()+get_eval_variance());
         }
         winrates.push_back(winrate);
         winrate_sum += winrate;
@@ -319,20 +320,20 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             best = &child;
         }
     }
-    float lottery = float(Random::get_Rng()()) / (float(Random::max()));
+    float lottery =winrate_sum * ( float(Random::get_Rng()()) / (float(Random::max())));
     int i = 0;
   
     for (auto it = winrates.begin(); it !=winrates.end(); it++, i++) {
         if ((lottery -= *it) < 0)
         {
-            m_children[i].inflate(get_eval_mean(), (int)parentvisits);
+            m_children[i].inflate(get_eval_mean(), 0);
             return m_children[i].get();
         }
     }
 
 
     assert(best != nullptr);
-    best->inflate(get_eval_mean(), (int)parentvisits);
+    best->inflate(get_eval_mean(), 0);
     return best->get();
 }
 
