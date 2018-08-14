@@ -305,7 +305,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         
         auto winrate = child.get_policy();
         if (child.get_visits() > 0) {
-            winrate = N_to_p(0.0f, (get_eval_mean()-child.get_eval_mean()) * (color ? -1.0f : 1.0f), child.get_eval_variance()+get_eval_variance());
+            winrate = N_to_p(0.0f, (get_eval_mean()-child.get_eval_mean()) * (color ? -1.0f : 1.0f), (child.get_eval_variance()+get_eval_variance())/8.0f);
         }
         winrates.push_back(winrate);
         winrate_sum += winrate;
@@ -320,7 +320,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             best = &child;
         }
     }
-    float lottery =winrate_sum * ( float(Random::get_Rng()()) / (float(Random::max())));
+    float lottery = winrate_sum * ( float(Random::get_Rng()()) / (float(Random::max())));
     int i = 0;
   
     for (auto it = winrates.begin(); it !=winrates.end(); it++, i++) {
