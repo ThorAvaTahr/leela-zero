@@ -121,7 +121,7 @@ void GTP::setup_default_parameters() {
     std::uint64_t seed2 = std::chrono::high_resolution_clock::
         now().time_since_epoch().count();
     cfg_rng_seed = seed1 ^ seed2;
-    cfg_prior_var = 0.5f ;
+    cfg_prior_var = 0.1f ;
 }
 
 const std::string GTP::s_commands[] = {

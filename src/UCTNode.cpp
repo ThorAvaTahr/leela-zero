@@ -46,7 +46,7 @@ UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits
 , m_policy(policy)
 {
     m_visits = 0;// std::min(100, parent_visits);
-    m_eval_mean = parent_value + cfg_prior_var*erfinv(2.0f * policy - 1.0f) * (tomove ? 1.0f : -1.0f); 
+    m_eval_mean = parent_value + cfg_prior_var*erfinv(2.0f * policy - 1.0f) * (tomove ? -1.0f : 1.0f); 
     m_eval_mean = tomove ? std::max(std::numeric_limits<float>::min(), m_eval_mean) : std::min(1.0f, m_eval_mean);
     m_color = tomove ? FastBoard::WHITE : FastBoard::BLACK;
     m_eval_moment2 = cfg_prior_var*UCTNode::POLICY_PERSISTENCE;
@@ -324,7 +324,12 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     std::vector<float> winrates;
     winrates.reserve(362);
     float winrate_sum = 0;
-    auto& max_child = *std::max_element(m_children.begin(), m_children.end(), NodeComp(color));
+    auto max_mean = get_eval_mean();
+    //auto& max_child = *std::max_element(m_children.begin(), m_children.end(), NodeComp(color));
+    //if (max_child.get_visits())
+    //    max_mean = color ? std::min(get_eval_mean(), max_child.get_eval_mean()) : std::max(get_eval_mean(), max_child.get_eval_mean());
+
+   
     for (auto& child : m_children) {
 //      if (!child.active()) {
 //          continue;
@@ -333,7 +338,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         
         auto winrate = child.get_policy();
         if (child.get_visits() > 0) {
-            winrate = N_to_p(0.0f, (max_child.get_eval_mean()-child.get_eval_mean()) * (color ? -1.0f : 1.0f), (child.get_eval_variance()+max_child.get_eval_variance())/1.0f);
+            winrate = N_to_p(0.0f, (max_mean-child.get_eval_mean()) * (color ? -1.0f : 1.0f), (child.get_eval_variance()+get_eval_variance())/4.0f);
         }
         winrates.push_back(winrate);
         winrate_sum += winrate;
@@ -361,6 +366,10 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
  
     float lottery = 0;
     for (auto i=0; i<winrates.size();  i++) {
+        if (!m_children[idx[i]].get_visits()) {
+            m_children[idx[i]].inflate(get_eval_mean(), 0);
+            return m_children[idx[i]].get(); // in case the highest value is skipped (lost lottery) and we arrive at a child without visits, first expand this one, otherwise do lottery
+        }
         lottery = (float(Random::get_Rng()()) / (float(Random::max())));
         if (lottery < winrates[idx[i]])
         {

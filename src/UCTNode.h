@@ -38,7 +38,7 @@ public:
     // to it to encourage other CPUs to explore other parts of the
     // search tree.
     static constexpr auto VIRTUAL_LOSS_COUNT = 3;
-    static constexpr auto POLICY_PERSISTENCE = 10;
+    static constexpr auto POLICY_PERSISTENCE = 1;
     // Defined in UCTNode.cpp
     explicit UCTNode(int vertex, float policy, float parent_value, int parent_visits, int tomove);
     UCTNode() = delete;
