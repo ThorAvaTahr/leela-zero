@@ -38,6 +38,7 @@ public:
     // to it to encourage other CPUs to explore other parts of the
     // search tree.
     static constexpr auto VIRTUAL_LOSS_COUNT = 3;
+    static constexpr auto POLICY_PERSISTENCE = 10;
     // Defined in UCTNode.cpp
     explicit UCTNode(int vertex, float policy, float parent_value, int parent_visits, int tomove);
     UCTNode() = delete;
@@ -131,7 +132,7 @@ protected:
 public:
 
     // returns the variance of the evaluation
-    float get_eval_variance() const { return m_eval_moment2 / m_visits; }
+    float get_eval_variance() const { return m_eval_moment2 / (m_visits+POLICY_PERSISTENCE); }
     float get_eval_mean() const { return m_eval_mean; }
 
     

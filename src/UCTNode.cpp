@@ -46,10 +46,10 @@ UCTNode::UCTNode(int vertex, float policy, float parent_value, int parent_visits
 , m_policy(policy)
 {
     m_visits = 0;// std::min(100, parent_visits);
-    m_eval_mean = parent_value + cfg_prior_var*erfinv(parent_value) * (tomove ? -1 : 1); 
+    m_eval_mean = parent_value + cfg_prior_var*erfinv(2.0f * policy - 1.0f) * (tomove ? 1.0f : -1.0f); 
     m_eval_mean = tomove ? std::max(std::numeric_limits<float>::min(), m_eval_mean) : std::min(1.0f, m_eval_mean);
     m_color = tomove ? FastBoard::WHITE : FastBoard::BLACK;
-    m_eval_moment2 = 0;
+    m_eval_moment2 = cfg_prior_var*UCTNode::POLICY_PERSISTENCE;
 }
 
 bool UCTNode::first_visit() const {
@@ -59,6 +59,33 @@ bool UCTNode::first_visit() const {
 SMP::Mutex& UCTNode::get_mutex() {
     return m_nodemutex;
 }
+
+class NodeComp : public std::binary_function<UCTNodePointer&,
+    UCTNodePointer&, bool> {
+public:
+    NodeComp(int color) : m_color(color) {};
+    bool operator()(const UCTNodePointer& a,
+        const UCTNodePointer& b) {
+
+        if (a.get_visits() == 0) {
+
+            if (b.get_visits() == 0) {
+                return a.get_policy() < b.get_policy(); // both zero visits, sort on policy
+            }
+            return true; // b has visits a not, so prioritize b
+        }
+        if (b.get_visits() == 0) {
+            return false;  // a has visits, b not so prioritize a
+        }
+        return m_color ? 
+            (a.get_eval_mean()-a.get_eval_variance()) > (b.get_eval_mean()-b.get_eval_variance()) : 
+            (a.get_eval_mean()-a.get_eval_variance()) < (b.get_eval_mean()-b.get_eval_variance());
+
+
+    }
+private:
+    int m_color;
+};
 
 bool UCTNode::create_children(std::atomic<int>& nodecount,
                               GameState& state,
@@ -194,7 +221,7 @@ void UCTNode::update(float eval) {
     m_visits++;
     m_blackevals = m_blackevals + eval;
     f_delta1 = eval - m_eval_mean;
-    m_eval_mean += f_delta1 / m_visits;
+    m_eval_mean += f_delta1 / (m_visits + POLICY_PERSISTENCE);
     f_delta2 = eval - m_eval_mean; // this is different from f_delta1 as m_eval_mean is just updated
     m_eval_moment2 += f_delta1*f_delta2;
     // accumulate_eval(eval); // removed this line, as I needed a lock for the entire update function
@@ -294,9 +321,10 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<float>::lowest();
-    std::vector<double> winrates;
+    std::vector<float> winrates;
     winrates.reserve(362);
     float winrate_sum = 0;
+    auto& max_child = *std::max_element(m_children.begin(), m_children.end(), NodeComp(color));
     for (auto& child : m_children) {
 //      if (!child.active()) {
 //          continue;
@@ -305,7 +333,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         
         auto winrate = child.get_policy();
         if (child.get_visits() > 0) {
-            winrate = N_to_p(0.0f, (get_eval_mean()-child.get_eval_mean()) * (color ? -1.0f : 1.0f), (child.get_eval_variance()+get_eval_variance())/8.0f);
+            winrate = N_to_p(0.0f, (max_child.get_eval_mean()-child.get_eval_mean()) * (color ? -1.0f : 1.0f), (child.get_eval_variance()+max_child.get_eval_variance())/1.0f);
         }
         winrates.push_back(winrate);
         winrate_sum += winrate;
@@ -320,14 +348,24 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             best = &child;
         }
     }
-    float lottery = winrate_sum * ( float(Random::get_Rng()()) / (float(Random::max())));
-    int i = 0;
-  
-    for (auto it = winrates.begin(); it !=winrates.end(); it++, i++) {
-        if ((lottery -= *it) < 0)
+
+
+    // initialize original index locations
+    std::vector<size_t> idx(winrates.size());
+    std::iota(idx.begin(), idx.end(), 0);
+
+    // sort indexes based on comparing values in v
+    std::sort(idx.begin(), idx.end(),
+        [&winrates](size_t i1, size_t i2) {return winrates[i1] > winrates[i2]; });
+
+ 
+    float lottery = 0;
+    for (auto i=0; i<winrates.size();  i++) {
+        lottery = (float(Random::get_Rng()()) / (float(Random::max())));
+        if (lottery < winrates[idx[i]])
         {
-            m_children[i].inflate(get_eval_mean(), 0);
-            return m_children[i].get();
+            m_children[idx[i]].inflate(get_eval_mean(), 0);
+            return m_children[idx[i]].get();
         }
     }
 
@@ -337,28 +375,7 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     return best->get();
 }
 
-class NodeComp : public std::binary_function<UCTNodePointer&,
-                                             UCTNodePointer&, bool> {
-public:
-    NodeComp(int color) : m_color(color) {};
-    bool operator()(const UCTNodePointer& a,
-                    const UCTNodePointer& b) {
-        // if visits are not same, sort on visits
-        if (a.get_visits() != b.get_visits()) {
-            return a.get_visits() < b.get_visits();
-        }
 
-        // neither has visits, sort on prior score
-        if (a.get_visits() == 0) {
-            return a.get_policy() < b.get_policy();
-        }
-
-        // both have same non-zero number of visits
-        return a.get_eval(m_color) < b.get_eval(m_color);
-    }
-private:
-    int m_color;
-};
 
 void UCTNode::sort_children(int color) {
     LOCK(get_mutex(), lock);
